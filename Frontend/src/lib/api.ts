@@ -12,9 +12,21 @@ export class ApiError extends Error {
   }
 }
 
+function parseBody(text: string): unknown {
+  if (text.length === 0) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    // A proxy or dev server error page is HTML; keep the status, drop the body.
+    return null;
+  }
+}
+
 async function readJson<T>(response: Response): Promise<T> {
-  const text = await response.text();
-  const body = text.length > 0 ? (JSON.parse(text) as unknown) : {};
+  const body = parseBody(await response.text());
+  if (body === null && response.ok) {
+    throw new ApiError(response.status, "The API returned a response that is not JSON");
+  }
   if (!response.ok) {
     const message =
       typeof body === "object" && body !== null && "error" in body
