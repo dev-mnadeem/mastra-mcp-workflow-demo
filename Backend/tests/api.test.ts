@@ -3,6 +3,7 @@ import request from "supertest";
 import { loadConfig } from "../src/config";
 import { createContainer } from "../src/container";
 import { createApp } from "../src/http/app";
+import { MAX_BODY_SIZE } from "../src/http/app";
 import { MAX_QUESTION_LENGTH } from "../src/http/routes";
 import { PROTOCOL_VERSION } from "../src/mcp/protocol";
 
@@ -84,6 +85,38 @@ describe("POST /mcp", () => {
       .send({ jsonrpc: "2.0", id: 6, method: "resources/list" })
       .expect(200);
     expect(response.body.error.code).toBe(-32601);
+  });
+});
+
+describe("request bodies the parser rejects", () => {
+  it("answers malformed JSON on /api/chat with 400, not 500", async () => {
+    const response = await request(newApp())
+      .post("/api/chat")
+      .set("Content-Type", "application/json")
+      .send('{"question": ')
+      .expect(400);
+    expect(response.body.error).toBe("invalid_json");
+  });
+
+  it("answers malformed JSON on /mcp with a JSON-RPC parse error", async () => {
+    const response = await request(newApp())
+      .post("/mcp")
+      .set("Content-Type", "application/json")
+      .send("{not json")
+      .expect(400);
+    expect(response.body).toEqual({
+      jsonrpc: "2.0",
+      id: null,
+      error: { code: -32700, message: "Parse error" },
+    });
+  });
+
+  it(`answers a body over ${MAX_BODY_SIZE} with 413`, async () => {
+    const response = await request(newApp())
+      .post("/api/chat")
+      .send({ question: "x".repeat(70 * 1024) })
+      .expect(413);
+    expect(response.body.error).toBe("payload_too_large");
   });
 });
 
