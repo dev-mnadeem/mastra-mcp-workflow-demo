@@ -3,6 +3,7 @@
 # --- build -----------------------------------------------------------------
 FROM node:22-alpine AS build
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
@@ -13,15 +14,13 @@ ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 RUN npm run build
 
 # --- runtime ---------------------------------------------------------------
+# `output: "standalone"` traces the server's real imports into .next/standalone,
+# so the image carries neither dev dependencies nor the full node_modules tree.
 FROM node:22-alpine AS runtime
-ENV NODE_ENV=production
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=7272 HOSTNAME=0.0.0.0
 WORKDIR /app
-COPY --from=build --chown=node:node /app/package.json ./package.json
-COPY --from=build --chown=node:node /app/package-lock.json ./package-lock.json
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/.next ./.next
-COPY --from=build --chown=node:node /app/public ./public
-COPY --from=build --chown=node:node /app/next.config.ts ./next.config.ts
+COPY --from=build --chown=node:node /app/.next/standalone ./
+COPY --from=build --chown=node:node /app/.next/static ./.next/static
 USER node
 EXPOSE 7272
-CMD ["npx", "next", "start", "-p", "7272"]
+CMD ["node", "server.js"]
