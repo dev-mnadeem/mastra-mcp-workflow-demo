@@ -23,13 +23,13 @@
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "zod": "^3.25.76",
-    "zod-to-json-schema": "^3.24.6"
+    "zod-to-json-schema": "~3.24.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
-    "@types/node": "^24.6.0",
+    "@types/node": "^22.20.5",
     "@types/supertest": "^6.0.3",
     "eslint": "^9.36.0",
     "nodemon": "^3.1.10",
@@ -39,5 +39,8 @@
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.45.0",
     "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
