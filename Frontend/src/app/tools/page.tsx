@@ -37,17 +37,31 @@ export default function ToolCatalogue() {
   const [invocation, setInvocation] = useState<Invocation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isCalling, setIsCalling] = useState(false);
+  const [catalogue, setCatalogue] = useState<"loading" | "ready" | "failed">("loading");
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
+
+  const loadCatalogue = useCallback(async (signal?: AbortSignal) => {
+    setCatalogue("loading");
+    setCatalogueError(null);
+    try {
+      const discovered = await fetchTools(signal);
+      setTools(discovered);
+      setSelected((current) => current ?? discovered[0]?.name ?? null);
+      setCatalogue("ready");
+    } catch (caught) {
+      if (signal?.aborted) return;
+      setCatalogueError(
+        caught instanceof Error ? caught.message : "Could not reach the server",
+      );
+      setCatalogue("failed");
+    }
+  }, []);
 
   useEffect(() => {
-    fetchTools()
-      .then((discovered) => {
-        setTools(discovered);
-        setSelected((current) => current ?? discovered[0]?.name ?? null);
-      })
-      .catch((caught) =>
-        setError(caught instanceof Error ? caught.message : "Could not reach the server"),
-      );
-  }, []);
+    const controller = new AbortController();
+    void loadCatalogue(controller.signal);
+    return () => controller.abort();
+  }, [loadCatalogue]);
 
   const invoke = useCallback(
     async (tool: string, values: Record<string, string>) => {
@@ -97,44 +111,64 @@ export default function ToolCatalogue() {
   return (
     <div className="flex flex-col gap-6">
       <section>
-        <h1 className="text-2xl font-semibold tracking-tight">Tool catalogue</h1>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Tool catalogue</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
           These are the tools the server advertises through <code>tools/list</code>.
           Calling one from here sends a real <code>tools/call</code> JSON-RPC request to
           the <code>/mcp</code> endpoint — the same request an external MCP client sends.
         </p>
       </section>
 
-      {error ? (
-        <Card className="border-red-300 dark:border-red-900">
-          <CardContent className="text-sm text-destructive">{error}</CardContent>
-        </Card>
+      {catalogue === "failed" ? (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/40 bg-[#fbeeeb] px-4 py-3 text-sm"
+        >
+          <p className="font-medium text-destructive">
+            Could not load the catalogue: {catalogueError}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            onClick={() => void loadCatalogue()}
+          >
+            Retry
+          </Button>
+        </div>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2" aria-busy={catalogue === "loading"}>
           {tools.map((tool) => (
             <button
               key={tool.name}
               type="button"
+              aria-pressed={tool.name === selected}
               onClick={() => {
                 setSelected(tool.name);
                 setArgs({});
               }}
-              className={`rounded-lg border px-4 py-3 text-left transition-colors ${
+              className={`rounded-md border-l-4 px-4 py-3 text-left transition-colors ${
                 tool.name === selected
-                  ? "border-foreground bg-muted"
-                  : "border-border hover:bg-muted"
+                  ? "border-l-primary bg-card"
+                  : "border-l-transparent hover:bg-card"
               }`}
             >
-              <span className="block font-mono text-sm">{tool.name}</span>
-              <span className="mt-1 block text-xs text-muted-foreground">
+              <span className="block font-mono text-sm font-medium">{tool.name}</span>
+              <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
                 {tool.description}
               </span>
             </button>
           ))}
-          {tools.length === 0 && !error ? (
-            <p className="text-sm text-muted-foreground">Loading catalogue…</p>
+          {catalogue === "loading" ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Loading catalogue…
+            </p>
+          ) : null}
+          {catalogue === "ready" && tools.length === 0 ? (
+            <p className="text-sm text-muted-foreground">The server advertises no tools.</p>
           ) : null}
         </div>
 
@@ -155,6 +189,11 @@ export default function ToolCatalogue() {
                     void invoke(active.name, args);
                   }}
                 >
+                  {stringFields(active).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      This tool takes no text arguments.
+                    </p>
+                  ) : null}
                   {stringFields(active).map((field) => (
                     <label key={field} className="flex flex-col gap-1 text-xs">
                       <span className="font-mono text-muted-foreground">{field}</span>
@@ -197,10 +236,13 @@ export default function ToolCatalogue() {
               {invocation ? (
                 <>
                   <div>
-                    <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
+                    <span className="mb-1 block font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                       request
                     </span>
-                    <pre className="max-h-72 overflow-auto rounded-md bg-muted p-3 font-mono leading-relaxed">
+                    <pre
+                      tabIndex={0}
+                      className="max-h-72 overflow-auto rounded-md border border-border bg-background p-3 font-mono leading-relaxed"
+                    >
                       {JSON.stringify(
                         {
                           jsonrpc: "2.0",
@@ -213,27 +255,37 @@ export default function ToolCatalogue() {
                     </pre>
                   </div>
                   <div>
-                    <span className="mb-1 flex items-center gap-2 uppercase tracking-wide text-muted-foreground">
+                    <span className="mb-1 flex items-center gap-2 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                       result
                       <Badge tone={invocation.result.isError ? "danger" : "success"}>
                         {invocation.result.isError ? "isError" : "ok"}
                       </Badge>
                     </span>
-                    <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 font-mono leading-relaxed">
+                    <pre
+                      tabIndex={0}
+                      className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background p-3 font-mono leading-relaxed"
+                    >
                       {invocation.result.content.map((block) => block.text).join("\n")}
                     </pre>
                   </div>
                   {invocation.result.structuredContent ? (
                     <div className="lg:col-span-2">
-                      <span className="mb-1 block uppercase tracking-wide text-muted-foreground">
+                      <span className="mb-1 block font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                         structuredContent
                       </span>
-                      <pre className="overflow-auto rounded-md bg-muted p-3 font-mono leading-relaxed">
+                      <pre
+                        tabIndex={0}
+                        className="overflow-auto rounded-md border border-border bg-background p-3 font-mono leading-relaxed"
+                      >
                         {JSON.stringify(invocation.result.structuredContent, null, 2)}
                       </pre>
                     </div>
                   ) : null}
                 </>
+              ) : error ? (
+                <p role="alert" className="text-sm font-medium text-destructive lg:col-span-2">
+                  {error}
+                </p>
               ) : (
                 <p className="text-sm text-muted-foreground">Nothing called yet.</p>
               )}

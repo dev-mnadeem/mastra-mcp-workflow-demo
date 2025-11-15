@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Geist, Geist_Mono } from "next/font/google";
+import "@fontsource/ibm-plex-sans/400.css";
+import "@fontsource/ibm-plex-sans/500.css";
+import "@fontsource/ibm-plex-sans/600.css";
+import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/ibm-plex-mono/500.css";
+import { NavLinks } from "@/components/NavLinks";
 import "./globals.css";
-
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "MCP-Mastra console",
@@ -12,34 +14,35 @@ export const metadata: Metadata = {
     "Ask an agent a question and watch which MCP tool it picks, with what arguments, and what the tool returns.",
 };
 
-const NAV = [
-  { href: "/", label: "Agent" },
-  { href: "/tools", label: "Tool catalogue" },
-];
-
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <div className="min-h-screen bg-background">
-          <header className="border-b border-border">
-            <div className="mx-auto flex max-w-6xl items-center gap-6 px-6 py-4">
-              <Link href="/" className="text-sm font-semibold tracking-tight">
-                MCP<span className="text-muted-foreground">-</span>Mastra
+      <body className="antialiased">
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-3 focus:z-10 focus:rounded-md focus:bg-card focus:px-3 focus:py-2 focus:text-sm"
+        >
+          Skip to content
+        </a>
+        <div className="min-h-screen">
+          <header className="border-b border-border bg-card">
+            <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
+              <Link
+                href="/"
+                className="flex items-center gap-2 font-mono text-sm font-medium tracking-tight"
+              >
+                <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-primary" />
+                MCP-Mastra
               </Link>
-              <nav className="flex items-center gap-4 text-sm text-muted-foreground">
-                {NAV.map((item) => (
-                  <Link key={item.href} href={item.href} className="hover:text-foreground">
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
-              <span className="ml-auto font-mono text-xs text-muted-foreground">
-                MCP 2025-06-18
+              <NavLinks />
+              <span className="ml-auto hidden font-mono text-xs text-muted-foreground sm:inline">
+                protocol 2025-06-18
               </span>
             </div>
           </header>
-          <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
+          <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+            {children}
+          </main>
         </div>
       </body>
     </html>

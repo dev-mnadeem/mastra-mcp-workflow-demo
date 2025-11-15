@@ -13,50 +13,57 @@ import type { ToolStep } from "@/lib/types";
 export function ToolTrace({ steps }: { steps: ToolStep[] }) {
   if (steps.length === 0) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         The agent answered without calling a tool.
       </p>
     );
   }
 
   return (
-    <ol className="flex flex-col gap-4">
+    <ol className="relative flex flex-col gap-5 border-l-2 border-signal/30 pl-5">
       {steps.map((step) => (
-        <li key={step.index} className="rounded-lg border border-border bg-background">
-          <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-2.5">
-            <span className="font-mono text-xs text-muted-foreground">
-              {step.index + 1}
-            </span>
+        <li key={step.index} className="relative">
+          <span
+            aria-hidden
+            className="absolute -left-[29px] top-2 flex h-4 w-4 items-center justify-center rounded-full bg-signal font-mono text-[10px] text-card"
+          >
+            {step.index + 1}
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="sr-only">Step {step.index + 1}:</span>
             <span className="font-mono text-sm font-medium">{step.tool}</span>
-            <Badge tone={step.ok ? "success" : "danger"}>
-              {step.ok ? "ok" : "error"}
-            </Badge>
-            <span className="ml-auto text-xs text-muted-foreground">
+            <Badge tone={step.ok ? "success" : "danger"}>{step.ok ? "ok" : "error"}</Badge>
+            <span className="ml-auto font-mono text-xs text-muted-foreground">
               {formatDuration(step.durationMs)}
             </span>
           </div>
 
-          <dl className="divide-y divide-border text-xs">
-            <div className="px-4 py-2.5">
-              <dt className="mb-1 uppercase tracking-wide text-muted-foreground">
+          <dl className="mt-2 flex flex-col gap-2 text-xs">
+            <div>
+              <dt className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 arguments
               </dt>
-              <dd className="font-mono break-words">{formatArguments(step.arguments)}</dd>
+              <dd className="mt-0.5 break-words font-mono">
+                {formatArguments(step.arguments)}
+              </dd>
             </div>
             {step.rationale ? (
-              <div className="px-4 py-2.5">
-                <dt className="mb-1 uppercase tracking-wide text-muted-foreground">
+              <div>
+                <dt className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                   why this tool
                 </dt>
-                <dd>{step.rationale}</dd>
+                <dd className="mt-0.5">{step.rationale}</dd>
               </div>
             ) : null}
-            <div className="px-4 py-2.5">
-              <dt className="mb-1 uppercase tracking-wide text-muted-foreground">
+            <div>
+              <dt className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
                 tools/call result
               </dt>
-              <dd>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-3 font-mono leading-relaxed">
+              <dd className="mt-1">
+                <pre
+                  tabIndex={0}
+                  className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-background p-3 font-mono leading-relaxed"
+                >
                   {step.output}
                 </pre>
               </dd>

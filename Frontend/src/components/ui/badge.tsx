@@ -5,9 +5,9 @@ type Tone = "neutral" | "success" | "danger" | "info";
 
 const TONES: Record<Tone, string> = {
   neutral: "bg-muted text-muted-foreground",
-  success: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  danger: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  info: "bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300",
+  success: "bg-[#dcefe6] text-[#11543f]",
+  danger: "bg-[#f7e0dc] text-[#8a2216]",
+  info: "bg-[#e1ebee] text-[#1d4f5e]",
 };
 
 export function Badge({
@@ -18,7 +18,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[11px] leading-5",
+        "inline-flex items-center rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-4",
         TONES[tone],
         className,
       )}
