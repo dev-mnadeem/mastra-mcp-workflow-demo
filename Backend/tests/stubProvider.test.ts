@@ -54,6 +54,24 @@ describe("StubModelProvider", () => {
     });
   });
 
+  it("matches weather words whole, not inside other words", async () => {
+    for (const question of [
+      "How do I brainstorm a headline?",
+      "Ad copy for a window cleaning service",
+      "How realistic should product photos be?",
+    ]) {
+      await expect(ask(question)).resolves.toMatchObject({
+        invocation: { tool: "get_context" },
+      });
+    }
+  });
+
+  it("still recognises inflected weather words", async () => {
+    await expect(ask("Is it raining in Lisbon?")).resolves.toMatchObject({
+      invocation: { tool: "get_weather", arguments: { city: "Lisbon" } },
+    });
+  });
+
   it("falls back to get_context for anything else", async () => {
     await expect(ask("how do I write a headline?")).resolves.toMatchObject({
       kind: "tool_call",

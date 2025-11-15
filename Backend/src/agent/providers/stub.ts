@@ -18,8 +18,12 @@ import {
  * the default provider rather than a fallback nobody runs.
  */
 
-const WEATHER_WORDS = ["weather", "forecast", "temperature", "rain", "sunny", "wind"];
-const CATALOGUE_WORDS = ["list", "sections", "topics", "what can you", "which tools"];
+// Whole-word patterns: a substring test sent "brainstorm" and "window" to the
+// weather tool and "realistic" to the section list.
+const WEATHER_PATTERN =
+  /\b(?:weather|forecast|temperatures?|rain(?:y|ing)?|sunny|wind(?:y)?|snow(?:y|ing)?)\b/i;
+const CATALOGUE_PATTERN =
+  /\b(?:list|sections|topics)\b|\bwhat can you\b|\bwhich tools\b/i;
 
 /** Words that are never a useful weather city. */
 const STOPWORDS = new Set([
@@ -70,11 +74,6 @@ export function extractCity(text: string): string | null {
   return fallback.length > 0 ? fallback[fallback.length - 1] : null;
 }
 
-function mentions(text: string, words: string[]): boolean {
-  const lower = text.toLowerCase();
-  return words.some((word) => lower.includes(word));
-}
-
 function summarise(question: string, results: ChatMessage[]): string {
   const body = results
     .map((result) => `${result.content}`)
@@ -109,7 +108,7 @@ export class StubModelProvider implements ModelProvider {
       return { kind: "final", text: summarise(question, results) };
     }
 
-    if (available.has("get_weather") && mentions(question, WEATHER_WORDS)) {
+    if (available.has("get_weather") && WEATHER_PATTERN.test(question)) {
       const city = extractCity(question);
       if (city) {
         return {
@@ -120,7 +119,7 @@ export class StubModelProvider implements ModelProvider {
       }
     }
 
-    if (available.has("list_context_sections") && mentions(question, CATALOGUE_WORDS)) {
+    if (available.has("list_context_sections") && CATALOGUE_PATTERN.test(question)) {
       return {
         kind: "tool_call",
         rationale: "The question asks what material is available.",
