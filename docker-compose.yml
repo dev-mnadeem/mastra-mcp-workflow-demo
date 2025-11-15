@@ -8,6 +8,9 @@ services:
       MODEL_PROVIDER: ${MODEL_PROVIDER:-stub}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      MAX_TOOL_STEPS: ${MAX_TOOL_STEPS:-4}
+      TOOL_TIMEOUT_MS: ${TOOL_TIMEOUT_MS:-5000}
+      RUN_TIMEOUT_MS: ${RUN_TIMEOUT_MS:-60000}
       PORT: "7271"
       HOST: "0.0.0.0"
       CORS_ORIGINS: "http://localhost:7272"
