@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_MAX_TOOL_STEPS, DEFAULT_PORT, loadConfig } from "../src/config";
+import {
+  DEFAULT_MAX_TOOL_STEPS,
+  DEFAULT_PORT,
+  DEFAULT_TOOL_TIMEOUT_MS,
+  loadConfig,
+} from "../src/config";
 import { createContainer, selectProvider } from "../src/container";
 
 describe("loadConfig", () => {
@@ -23,6 +28,14 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ PORT: "eight" })).toThrow(
       /PORT must be a positive integer/,
     );
+  });
+
+  it("reads the tool and run deadlines", () => {
+    expect(loadConfig({ TOOL_TIMEOUT_MS: "250", RUN_TIMEOUT_MS: "9000" })).toMatchObject({
+      toolTimeoutMs: 250,
+      runTimeoutMs: 9000,
+    });
+    expect(() => loadConfig({ TOOL_TIMEOUT_MS: "0" })).toThrow(/TOOL_TIMEOUT_MS/);
   });
 
   it("rejects an unknown provider", () => {
@@ -58,5 +71,6 @@ describe("createContainer", () => {
     const container = createContainer(loadConfig({}));
     expect(container.mcpClient.label).toBe("in-memory:mcp-mastra-tools");
     expect(container.mcpServer.registry.size()).toBe(3);
+    expect(container.mcpServer.registry.callTimeoutMs).toBe(DEFAULT_TOOL_TIMEOUT_MS);
   });
 });

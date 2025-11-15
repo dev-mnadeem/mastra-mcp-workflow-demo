@@ -65,6 +65,12 @@ describe("summariseRun", () => {
       summariseRun({ ...run, steps: [step, step], stoppedBy: "step_limit" }),
     ).toContain("2 tool calls via stub in 1.5 s, stopped at the step limit");
   });
+
+  it("names a run cut off by the deadline", () => {
+    expect(summariseRun({ ...run, steps: [], stoppedBy: "deadline" })).toBe(
+      "0 tool calls via stub in 1.5 s, stopped at the run deadline",
+    );
+  });
 });
 
 describe("stepBadge", () => {

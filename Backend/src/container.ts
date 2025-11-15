@@ -54,7 +54,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const mcpServer = new McpServer({
     name: SERVER_NAME,
     version: SERVER_VERSION,
-    registry: buildToolRegistry(),
+    registry: buildToolRegistry({ callTimeoutMs: config.toolTimeoutMs }),
   });
 
   const mcpClient = new McpClient(new InMemoryTransport(mcpServer), {
@@ -65,6 +65,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const { provider, warnings } = selectProvider(config);
   const runner = new AgentRunner(mcpClient, provider, {
     maxSteps: config.maxToolSteps,
+    runTimeoutMs: config.runTimeoutMs,
   });
 
   return { config, mcpServer, mcpClient, provider, runner, warnings };

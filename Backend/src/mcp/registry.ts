@@ -16,7 +16,25 @@ export interface McpToolDefinition<TInput = unknown> {
   name: string;
   description: string;
   inputSchema: ZodType<TInput>;
-  handler: (input: TInput) => Promise<McpToolCallResult> | McpToolCallResult;
+  handler: (
+    input: TInput,
+    context: ToolCallContext,
+  ) => Promise<McpToolCallResult> | McpToolCallResult;
+}
+
+/**
+ * Handed to every handler. `signal` aborts when the call's deadline passes, so a
+ * tool doing I/O can pass it to `fetch` and stop instead of running on unseen.
+ */
+export interface ToolCallContext {
+  signal: AbortSignal;
+}
+
+/** Per-call deadline when the registry is built without one. */
+export const DEFAULT_TOOL_TIMEOUT_MS = 5_000;
+
+export interface ToolRegistryOptions {
+  callTimeoutMs?: number;
 }
 
 /**
@@ -32,7 +50,10 @@ export function createTool<TSchema extends ZodType>(definition: {
   name: string;
   description: string;
   inputSchema: TSchema;
-  handler: (input: z.infer<TSchema>) => Promise<McpToolCallResult> | McpToolCallResult;
+  handler: (
+    input: z.infer<TSchema>,
+    context: ToolCallContext,
+  ) => Promise<McpToolCallResult> | McpToolCallResult;
 }): McpToolDefinition<z.infer<TSchema>> {
   return definition as McpToolDefinition<z.infer<TSchema>>;
 }
@@ -40,8 +61,20 @@ export function createTool<TSchema extends ZodType>(definition: {
 /** MCP tool names are used as identifiers by clients, so keep them boring. */
 const TOOL_NAME_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 
+class ToolTimeoutError extends Error {
+  constructor(readonly timeoutMs: number) {
+    super(`timed out after ${timeoutMs} ms`);
+    this.name = "ToolTimeoutError";
+  }
+}
+
 export class ToolRegistry {
   private readonly tools = new Map<string, AnyMcpTool>();
+  readonly callTimeoutMs: number;
+
+  constructor(options: ToolRegistryOptions = {}) {
+    this.callTimeoutMs = options.callTimeoutMs ?? DEFAULT_TOOL_TIMEOUT_MS;
+  }
 
   register<TInput>(tool: McpToolDefinition<TInput>): this {
     if (!TOOL_NAME_PATTERN.test(tool.name)) {
@@ -95,6 +128,8 @@ export class ToolRegistry {
    * arguments is a *protocol* error and raises `JsonRpcError`. A tool that
    * throws while doing its job is a *tool* error and comes back as content with
    * `isError: true`, which is what lets an agent read the message and retry.
+   * A handler that outlives `callTimeoutMs` is a tool error too: its signal is
+   * aborted and the caller gets an answer instead of waiting on it.
    */
   async call(name: string, args: unknown): Promise<McpToolCallResult> {
     const tool = this.tools.get(name);
@@ -115,14 +150,30 @@ export class ToolRegistry {
       );
     }
 
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const error = new ToolTimeoutError(this.callTimeoutMs);
+        controller.abort(error);
+        reject(error);
+      }, this.callTimeoutMs);
+    });
+
     try {
-      return await tool.handler(parsed.data as never);
+      return await Promise.race([
+        tool.handler(parsed.data as never, { signal: controller.signal }),
+        deadline,
+      ]);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const verb = error instanceof ToolTimeoutError ? "" : "failed: ";
       return {
-        content: [{ type: "text", text: `Tool "${name}" failed: ${message}` }],
+        content: [{ type: "text", text: `Tool "${name}" ${verb}${message}` }],
         isError: true,
       };
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

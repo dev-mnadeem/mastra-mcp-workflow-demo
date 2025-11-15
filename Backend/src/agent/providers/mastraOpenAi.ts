@@ -46,9 +46,16 @@ Rules:
 - Prefer calling a tool before answering from memory.
 - Once you have a tool result in the transcript, answer with "final".`;
 
+interface GenerateOptions {
+  abortSignal?: AbortSignal;
+}
+
 interface MastraAgentLike {
-  generate?: (prompt: string) => Promise<{ text: string }>;
-  generateLegacy?: (prompt: string) => Promise<{ text: string }>;
+  generate?: (prompt: string, options?: GenerateOptions) => Promise<{ text: string }>;
+  generateLegacy?: (
+    prompt: string,
+    options?: GenerateOptions,
+  ) => Promise<{ text: string }>;
 }
 
 export class MastraOpenAiProvider implements ModelProvider {
@@ -64,7 +71,7 @@ export class MastraOpenAiProvider implements ModelProvider {
     return Boolean(this.options.apiKey ?? process.env.OPENAI_API_KEY);
   }
 
-  async decide({ messages, tools }: DecideInput): Promise<ModelDecision> {
+  async decide({ messages, tools, signal }: DecideInput): Promise<ModelDecision> {
     const agent = await this.getAgent();
     const prompt = [
       "Tools available over MCP:",
@@ -80,7 +87,7 @@ export class MastraOpenAiProvider implements ModelProvider {
     if (!call) {
       throw new Error("Mastra agent exposes neither generateLegacy() nor generate()");
     }
-    const { text } = await call.call(agent, prompt);
+    const { text } = await call.call(agent, prompt, { abortSignal: signal });
     return parseDecision(text, this.options.maxDecisionChars);
   }
 

@@ -17,6 +17,8 @@ export function createRoutes(container: AppContainer): Router {
       protocolVersion: PROTOCOL_VERSION,
       tools: container.mcpServer.registry.names(),
       maxToolSteps: container.config.maxToolSteps,
+      toolTimeoutMs: container.config.toolTimeoutMs,
+      runTimeoutMs: container.config.runTimeoutMs,
       warnings: container.warnings,
     });
   });
@@ -43,7 +45,16 @@ export function createRoutes(container: AppContainer): Router {
           { length: question.length },
         );
       }
-      res.json(await container.runner.run(question.trim()));
+      // A client that hangs up should not keep paying for model calls, so the
+      // run is cancelled when the response closes before it was written.
+      const controller = new AbortController();
+      res.on("close", () => {
+        if (!res.writableEnded) controller.abort();
+      });
+      const run = await container.runner.run(question.trim(), {
+        signal: controller.signal,
+      });
+      if (!controller.signal.aborted) res.json(run);
     }),
   );
 

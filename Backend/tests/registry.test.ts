@@ -71,4 +71,41 @@ describe("ToolRegistry", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0].text).toContain("disk on fire");
   });
+
+  it("answers a slow handler with isError once the deadline passes", async () => {
+    let seenSignal: AbortSignal | undefined;
+    const hang = createTool({
+      name: "hang",
+      description: "Never resolves",
+      inputSchema: z.object({}),
+      handler: (_input, { signal }) => {
+        seenSignal = signal;
+        return new Promise<never>(() => {});
+      },
+    });
+    const registry = new ToolRegistry({ callTimeoutMs: 20 }).register(hang);
+    const result = await registry.call("hang", {});
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toBe('Tool "hang" timed out after 20 ms');
+    expect(seenSignal?.aborted).toBe(true);
+  });
+
+  it("leaves the signal untouched when the handler finishes in time", async () => {
+    let seenSignal: AbortSignal | undefined;
+    const quick = createTool({
+      name: "quick",
+      description: "Resolves at once",
+      inputSchema: z.object({}),
+      handler: (_input, { signal }) => {
+        seenSignal = signal;
+        return { content: [{ type: "text" as const, text: "done" }] };
+      },
+    });
+    const registry = new ToolRegistry({ callTimeoutMs: 20 }).register(quick);
+    await expect(registry.call("quick", {})).resolves.toMatchObject({
+      content: [{ text: "done" }],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(seenSignal?.aborted).toBe(false);
+  });
 });

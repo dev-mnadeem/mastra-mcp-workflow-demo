@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { AddressInfo } from "node:net";
+import { describe, expect, it, vi } from "vitest";
+import { AgentRunner } from "../src/agent/loop";
+import { ModelDecision, ModelProvider } from "../src/agent/provider";
 import request from "supertest";
 import { loadConfig } from "../src/config";
 import { createContainer } from "../src/container";
@@ -58,6 +61,40 @@ describe("POST /api/chat", () => {
       .send({ question: "x".repeat(MAX_QUESTION_LENGTH + 1) })
       .expect(400);
     expect(response.body.details).toMatchObject({ length: MAX_QUESTION_LENGTH + 1 });
+  });
+});
+
+describe("POST /api/chat cancellation", () => {
+  it("aborts the run when the client disconnects", async () => {
+    const container = createContainer(loadConfig({}));
+    let providerSignal: AbortSignal | undefined;
+    const hanging: ModelProvider = {
+      id: "hanging",
+      label: "Hanging",
+      isAvailable: () => true,
+      decide: ({ signal }) => {
+        providerSignal = signal;
+        return new Promise<ModelDecision>(() => {});
+      },
+    };
+    container.runner = new AgentRunner(container.mcpClient, hanging);
+    const server = createApp(container).listen(0);
+    try {
+      const { port } = server.address() as AddressInfo;
+      const client = new AbortController();
+      const response = fetch(`http://127.0.0.1:${port}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: "hello" }),
+        signal: client.signal,
+      });
+      await vi.waitFor(() => expect(providerSignal).toBeDefined());
+      client.abort();
+      await expect(response).rejects.toThrow();
+      await vi.waitFor(() => expect(providerSignal?.aborted).toBe(true));
+    } finally {
+      server.close();
+    }
   });
 });
 

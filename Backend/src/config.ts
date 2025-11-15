@@ -8,6 +8,8 @@
 export const DEFAULT_PORT = 7271;
 export const DEFAULT_OPENAI_MODEL = "gpt-4o-mini";
 export const DEFAULT_MAX_TOOL_STEPS = 4;
+export const DEFAULT_TOOL_TIMEOUT_MS = 5_000;
+export const DEFAULT_RUN_TIMEOUT_MS = 60_000;
 export const SERVER_NAME = "mcp-mastra-tools";
 export const SERVER_VERSION = "1.0.0";
 
@@ -21,6 +23,10 @@ export interface AppConfig {
   openAiModel: string;
   openAiApiKey?: string;
   maxToolSteps: number;
+  /** Deadline for a single `tools/call`, on every transport. */
+  toolTimeoutMs: number;
+  /** Deadline for a whole `/api/chat` run, model calls included. */
+  runTimeoutMs: number;
   /** `*` allows any origin. Otherwise a comma-separated allow-list. */
   corsOrigins: string[];
   nodeEnv: string;
@@ -49,6 +55,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     openAiModel: env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
     openAiApiKey: env.OPENAI_API_KEY?.trim() || undefined,
     maxToolSteps: readInt(env.MAX_TOOL_STEPS, DEFAULT_MAX_TOOL_STEPS, "MAX_TOOL_STEPS"),
+    toolTimeoutMs: readInt(
+      env.TOOL_TIMEOUT_MS,
+      DEFAULT_TOOL_TIMEOUT_MS,
+      "TOOL_TIMEOUT_MS",
+    ),
+    runTimeoutMs: readInt(env.RUN_TIMEOUT_MS, DEFAULT_RUN_TIMEOUT_MS, "RUN_TIMEOUT_MS"),
     corsOrigins: (env.CORS_ORIGINS?.trim() || "*")
       .split(",")
       .map((origin) => origin.trim())

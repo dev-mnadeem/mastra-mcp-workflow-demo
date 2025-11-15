@@ -18,7 +18,7 @@ export interface AgentRun {
   providerLabel: string;
   toolsDiscovered: string[];
   steps: ToolStep[];
-  stoppedBy: "final" | "step_limit";
+  stoppedBy: "final" | "step_limit" | "deadline" | "cancelled";
   durationMs: number;
 }
 

@@ -99,10 +99,17 @@ export function formatArguments(args: Record<string, unknown>): string {
     .join(", ");
 }
 
+const STOP_REASONS: Record<AgentRun["stoppedBy"], string> = {
+  final: "",
+  step_limit: ", stopped at the step limit",
+  deadline: ", stopped at the run deadline",
+  cancelled: ", cancelled",
+};
+
 export function summariseRun(run: AgentRun): string {
   const calls = run.steps.length;
   const noun = calls === 1 ? "tool call" : "tool calls";
-  const stopped = run.stoppedBy === "step_limit" ? ", stopped at the step limit" : "";
+  const stopped = STOP_REASONS[run.stoppedBy];
   return `${calls} ${noun} via ${run.provider} in ${formatDuration(run.durationMs)}${stopped}`;
 }
 

@@ -22,6 +22,8 @@ export type ModelDecision =
 export interface DecideInput {
   messages: ChatMessage[];
   tools: McpToolDescriptor[];
+  /** Aborts when the run is cancelled or out of time; pass it to network calls. */
+  signal?: AbortSignal;
 }
 
 /**

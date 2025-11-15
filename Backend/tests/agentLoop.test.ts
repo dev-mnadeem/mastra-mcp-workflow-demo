@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AgentRunner } from "../src/agent/loop";
-import { ModelDecision, ModelProvider } from "../src/agent/provider";
+import { DecideInput, ModelDecision, ModelProvider } from "../src/agent/provider";
 import { StubModelProvider } from "../src/agent/providers/stub";
 import { McpClient } from "../src/mcp/client";
 import { McpServer } from "../src/mcp/server";
@@ -121,5 +121,79 @@ describe("AgentRunner control flow", () => {
       now: () => (now += 5),
     }).run("hello");
     expect(run.durationMs).toBeGreaterThan(0);
+  });
+});
+
+/** Never decides until its signal aborts, like a model call that hangs. */
+class HangingProvider implements ModelProvider {
+  readonly id = "hanging";
+  readonly label = "Hanging";
+  signals: Array<AbortSignal | undefined> = [];
+  isAvailable() {
+    return true;
+  }
+  decide({ signal }: DecideInput): Promise<ModelDecision> {
+    this.signals.push(signal);
+    return new Promise(() => {});
+  }
+}
+
+describe("AgentRunner deadlines and cancellation", () => {
+  it("stops a run that outlives its deadline", async () => {
+    const provider = new HangingProvider();
+    const run = await new AgentRunner(newClient(), provider, { runTimeoutMs: 20 }).run(
+      "x",
+    );
+    expect(run.stoppedBy).toBe("deadline");
+    expect(run.answer).toContain("Stopped after 20 ms");
+    expect(provider.signals[0]?.aborted).toBe(true);
+  });
+
+  it("stops when the caller aborts mid-decision", async () => {
+    const provider = new HangingProvider();
+    const controller = new AbortController();
+    const pending = new AgentRunner(newClient(), provider).run("x", {
+      signal: controller.signal,
+    });
+    setTimeout(() => controller.abort(), 5);
+    const run = await pending;
+    expect(run.stoppedBy).toBe("cancelled");
+    expect(run.answer).toBe("Cancelled after 0 tool call(s).");
+  });
+
+  it("does not call the provider when already cancelled", async () => {
+    const provider = new HangingProvider();
+    const controller = new AbortController();
+    controller.abort();
+    const run = await new AgentRunner(newClient(), provider).run("x", {
+      signal: controller.signal,
+    });
+    expect(run.stoppedBy).toBe("cancelled");
+    expect(provider.signals).toHaveLength(0);
+  });
+
+  it("keeps the tool calls made before a cancel in the trace", async () => {
+    const controller = new AbortController();
+    const provider: ModelProvider = {
+      id: "cancel-after-tool",
+      label: "Cancels after one tool",
+      isAvailable: () => true,
+      async decide({ messages }) {
+        if (messages.some((message) => message.role === "tool")) {
+          controller.abort();
+          return new Promise<ModelDecision>(() => {});
+        }
+        return {
+          kind: "tool_call",
+          invocation: { tool: "get_weather", arguments: { city: "Oslo" } },
+        };
+      },
+    };
+    const run = await new AgentRunner(newClient(), provider).run("x", {
+      signal: controller.signal,
+    });
+    expect(run.stoppedBy).toBe("cancelled");
+    expect(run.steps).toHaveLength(1);
+    expect(run.steps[0]).toMatchObject({ tool: "get_weather", ok: true });
   });
 });
