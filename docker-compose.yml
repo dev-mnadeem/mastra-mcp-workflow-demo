@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./Backend
+    image: mcp-mastra-backend
+    environment:
+      # The deterministic stub is the default so the stack runs with no secrets.
+      MODEL_PROVIDER: ${MODEL_PROVIDER:-stub}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      PORT: "7271"
+      HOST: "0.0.0.0"
+      CORS_ORIGINS: "http://localhost:7272"
+      NODE_ENV: production
+    ports:
+      - "7271:7271"
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "fetch('http://127.0.0.1:7271/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./Frontend
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:7271
+    image: mcp-mastra-frontend
+    environment:
+      NODE_ENV: production
+    ports:
+      - "7272:7272"
+    depends_on:
+      backend:
+        condition: service_healthy
