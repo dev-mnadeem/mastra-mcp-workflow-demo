@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+coverage
+tests
+.env
+.env.local
+*.md
