@@ -80,10 +80,15 @@ export class ToolRegistry {
       return {
         name: tool.name,
         description: tool.description,
-        inputSchema: zodToJsonSchema(tool.inputSchema, {
+        // Erase the converter's recursive generic at this heterogeneous registry
+        // boundary; every input remains a runtime-validated Zod 3 schema.
+        inputSchema: (zodToJsonSchema as unknown as (
+          schema: AnyMcpTool["inputSchema"],
+          options: { $refStrategy: "none"; target: "jsonSchema7" },
+        ) => JsonSchema)(tool.inputSchema, {
           $refStrategy: "none",
           target: "jsonSchema7",
-        }) as JsonSchema,
+        }),
       };
     });
   }

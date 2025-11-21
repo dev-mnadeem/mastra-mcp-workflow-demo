@@ -91,3 +91,7 @@ make no model calls and do not establish the quality or latency of the hosted mo
 - The stub provider routes weather questions to `get_weather` and most other things to `get_context`. It does not chain tools.
 - The OpenAI path type-checks but hasn't been run against a real key.
 - The MCP implementation covers tools only (no resources, prompts or sampling), and `/mcp` has no authentication.
+
+## Author
+
+[**Muhammad Nadeem**](https://github.com/dev-mnadeem)
