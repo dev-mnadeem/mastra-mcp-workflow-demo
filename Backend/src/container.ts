@@ -65,6 +65,7 @@ export function createContainer(config: AppConfig): AppContainer {
   const { provider, warnings } = selectProvider(config);
   const runner = new AgentRunner(mcpClient, provider, {
     maxSteps: config.maxToolSteps,
+    timeoutMs: config.agentTimeoutMs,
   });
 
   return { config, mcpServer, mcpClient, provider, runner, warnings };

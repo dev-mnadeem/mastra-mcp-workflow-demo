@@ -28,7 +28,10 @@ export class HttpTransport implements McpTransport {
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
-  async send(request: JsonRpcRequest): Promise<unknown | null> {
+  async send(
+    request: JsonRpcRequest,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<unknown | null> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -40,7 +43,9 @@ export class HttpTransport implements McpTransport {
           "MCP-Protocol-Version": PROTOCOL_VERSION,
         },
         body: JSON.stringify(request),
-        signal: controller.signal,
+        signal: options.signal
+          ? AbortSignal.any([controller.signal, options.signal])
+          : controller.signal,
       });
       const body = await response.text();
       if (body.length === 0) return null;

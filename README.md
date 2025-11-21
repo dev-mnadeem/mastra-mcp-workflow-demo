@@ -10,7 +10,7 @@ By default the agent uses a local stub provider (a keyword rule table), so it ru
 
 - MCP server with `initialize`, `ping`, `tools/list` and `tools/call`, served over HTTP (`POST /mcp`) and stdio
 - Three tools: `get_context`, `list_context_sections` and `get_weather` (synthetic, deterministic readings, not a real forecast)
-- Agent loop that talks to the server through an MCP client, validates tool arguments with Zod and stops after `MAX_TOOL_STEPS`
+- Agent loop that talks to the server through an MCP client, validates tool arguments with Zod and stops after `MAX_TOOL_STEPS` or the overall `AGENT_TIMEOUT_MS` deadline (30 seconds by default)
 - Web console with the agent chat and a tool catalogue page for sending raw `tools/call` requests
 
 Backend: Node, TypeScript, Express, Zod, `@mastra/core`. Frontend: Next.js 15, React 19, Tailwind.
@@ -72,6 +72,19 @@ cd Frontend && npm test
 ```
 
 Both packages also have `npm run lint` and `npm run typecheck`.
+
+## Execution limits
+
+The deadline covers tool discovery, model decisions and tool calls together, so a
+provider that never resolves cannot hold an HTTP request open indefinitely. A timeout
+returns 504. Closing the browser request aborts the run; cancellation reaches the hosted
+SDK and HTTP MCP transport. Shared MCP initialization uses the transport's own timeout.
+Third-party tools may already have performed side effects before cancellation, so a
+timeout is not a transaction rollback.
+
+The backend suite includes stalled discovery/model/tool fixtures, caller cancellation,
+a 504 response, and a mocked SDK assertion that receives the abort signal. These checks
+make no model calls and do not establish the quality or latency of the hosted model.
 
 ## Notes
 

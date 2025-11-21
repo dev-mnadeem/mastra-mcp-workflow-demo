@@ -16,7 +16,10 @@ import {
  */
 export interface McpTransport {
   readonly label: string;
-  send(request: JsonRpcRequest): Promise<unknown | null>;
+  send(
+    request: JsonRpcRequest,
+    options?: { signal?: AbortSignal },
+  ): Promise<unknown | null>;
   close?(): Promise<void>;
 }
 
@@ -66,10 +69,15 @@ export class McpClient {
    * Tool descriptors, cached after the first call. The server advertises
    * `listChanged: false`, so there is nothing to invalidate on.
    */
-  async listTools(): Promise<McpToolDescriptor[]> {
+  async listTools(options: { signal?: AbortSignal } = {}): Promise<McpToolDescriptor[]> {
     if (this.toolCache) return this.toolCache;
     await this.connect();
-    const result = await this.request<McpToolsListResult>(McpMethod.ToolsList);
+    options.signal?.throwIfAborted();
+    const result = await this.request<McpToolsListResult>(
+      McpMethod.ToolsList,
+      undefined,
+      options,
+    );
     this.toolCache = result.tools;
     return this.toolCache;
   }
@@ -77,12 +85,18 @@ export class McpClient {
   async callTool(
     name: string,
     args: Record<string, unknown> = {},
+    options: { signal?: AbortSignal } = {},
   ): Promise<McpToolCallResult> {
     await this.connect();
-    return this.request<McpToolCallResult>(McpMethod.ToolsCall, {
-      name,
-      arguments: args,
-    });
+    options.signal?.throwIfAborted();
+    return this.request<McpToolCallResult>(
+      McpMethod.ToolsCall,
+      {
+        name,
+        arguments: args,
+      },
+      options,
+    );
   }
 
   async ping(): Promise<void> {
@@ -97,14 +111,21 @@ export class McpClient {
     await this.transport.send({ jsonrpc: "2.0", method, params });
   }
 
-  private async request<T>(method: string, params?: Record<string, unknown>): Promise<T> {
+  private async request<T>(
+    method: string,
+    params?: Record<string, unknown>,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<T> {
     const id = this.nextId++;
-    const response = await this.transport.send({
-      jsonrpc: "2.0",
-      id,
-      method,
-      params,
-    });
+    const response = await this.transport.send(
+      {
+        jsonrpc: "2.0",
+        id,
+        method,
+        params,
+      },
+      options,
+    );
     if (response === null || response === undefined) {
       throw new Error(`No response from ${this.transport.label} for ${method}`);
     }

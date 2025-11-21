@@ -1,3 +1,4 @@
+import { AgentTimeoutError } from "../agent/loop";
 import { Router } from "express";
 import { AppContainer } from "../container";
 import { PROTOCOL_VERSION } from "../mcp/protocol";
@@ -43,7 +44,23 @@ export function createRoutes(container: AppContainer): Router {
           { length: question.length },
         );
       }
-      res.json(await container.runner.run(question.trim()));
+      const controller = new AbortController();
+      const disconnect = () => {
+        if (!res.writableEnded) controller.abort(new Error("Client disconnected"));
+      };
+      res.once("close", disconnect);
+      try {
+        const result = await container.runner.run(question.trim(), {
+          signal: controller.signal,
+        });
+        if (!res.destroyed) res.json(result);
+      } catch (error) {
+        if (res.destroyed) return;
+        if (error instanceof AgentTimeoutError) throw new ApiError(504, error.message);
+        throw error;
+      } finally {
+        res.off("close", disconnect);
+      }
     }),
   );
 

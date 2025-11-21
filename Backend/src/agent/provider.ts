@@ -20,6 +20,7 @@ export type ModelDecision =
   | { kind: "final"; text: string };
 
 export interface DecideInput {
+  signal?: AbortSignal;
   messages: ChatMessage[];
   tools: McpToolDescriptor[];
 }

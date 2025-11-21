@@ -21,6 +21,7 @@ export interface AppConfig {
   openAiModel: string;
   openAiApiKey?: string;
   maxToolSteps: number;
+  agentTimeoutMs?: number;
   /** `*` allows any origin. Otherwise a comma-separated allow-list. */
   corsOrigins: string[];
   nodeEnv: string;
@@ -48,6 +49,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     provider: readProvider(env.MODEL_PROVIDER),
     openAiModel: env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
     openAiApiKey: env.OPENAI_API_KEY?.trim() || undefined,
+    agentTimeoutMs: readInt(env.AGENT_TIMEOUT_MS, 30_000, "AGENT_TIMEOUT_MS"),
     maxToolSteps: readInt(env.MAX_TOOL_STEPS, DEFAULT_MAX_TOOL_STEPS, "MAX_TOOL_STEPS"),
     corsOrigins: (env.CORS_ORIGINS?.trim() || "*")
       .split(",")
